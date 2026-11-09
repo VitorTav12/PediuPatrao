@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Dashboard Administrativo</title>
+</head>
+<body>
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-speedometer2 me-2 text-primary"></i>Dashboard Administrativo
+        </h2>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="bi bi-filter me-1"></i> Filtros de Consulta</h5>
+        </div>
+        <div class="card-body">
+            <form id="filtroForm" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Data Inicial:</label>
+                    <input type="date" id="filtroDe" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data Final:</label>
+                    <input type="date" id="filtroAte" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status:</label>
+                    <select id="filtroStatus" class="form-select">
+                        <option value="">Todos (Exceto Cancelados)</option>
+                        <option value="RECEBIDO">RECEBIDO</option>
+                        <option value="EM_PREPARO">EM_PREPARO</option>
+                        <option value="PRONTO">PRONTO</option>
+                        <option value="SAIU_PARA_ENTREGA">SAIU_PARA_ENTREGA</option>
+                        <option value="RETIRADO">RETIRADO</option>
+                        <option value="FINALIZADO">FINALIZADO</option>
+                        <option value="CANCELADO">CANCELADO</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row text-white mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card bg-info shadow-sm h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-uppercase mb-1">Faturamento</div>
+                    <div class="h5 mb-0 font-weight-bold" id="lblFaturamento">R$ 0,00</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card bg-success shadow-sm h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-uppercase mb-1">Pedidos Válidos</div>
+                    <div class="h5 mb-0 font-weight-bold" id="lblPedidosValidos">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card bg-warning text-dark shadow-sm h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-uppercase mb-1">Ticket Médio</div>
+                    <div class="h5 mb-0 font-weight-bold" id="lblTicketMedio">R$ 0,00</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card bg-danger shadow-sm h-100 py-2">
+                <div class="card-body">
+                    <div class="text-xs font-weight-bold text-uppercase mb-1">% Cancelamento</div>
+                    <div class="h5 mb-0 font-weight-bold" id="lblCancelamento">0%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-xl-8 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">Desempenho de Vendas por Dia</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="sales-chart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">Situação dos Pedidos</h6>
+                </div>
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <div style="width: 220px; height: 220px;">
+                        <canvas id="status-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-xl-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">Vendas por Horário</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="hourly-chart" height="140"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">Produtos Mais Vendidos</h6>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Qtd</th>
+                                <th>Faturamento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaProdutos">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let salesChart, statusChart, hourlyChart;
+
+        function carregarDashboard(params = '') {
+            $.get('/api/dashboard/resumo' + params, function(data) {
+                $('#lblFaturamento').text('R$ ' + data.faturamento.toFixed(2));
+                $('#lblPedidosValidos').text(data.pedidosValidos);
+                $('#lblTicketMedio').text('R$ ' + data.ticketMedio.toFixed(2));
+                $('#lblCancelamento').text(data.percentualCancelamento.toFixed(1) + '%');
+            });
+
+            $.get('/api/dashboard/vendas-por-dia' + params, function(data) {
+                const labels = data.map(item => item.data);
+                const valores = data.map(item => item.faturamento);
+
+                if (salesChart) salesChart.destroy();
+                const ctx = document.getElementById('sales-chart').getContext('2d');
+                salesChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: valores,
+                            borderColor: '#0d6efd',
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            });
+
+            $.get('/api/dashboard/pedidos-por-status' + params, function(data) {
+                const labels = data.map(item => item.status);
+                const valores = data.map(item => item.quantidade);
+
+                if (statusChart) statusChart.destroy();
+                const ctx = document.getElementById('status-chart').getContext('2d');
+                statusChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: valores,
+                            backgroundColor: ['#ffc107', '#0dcaf0', '#198754', '#0d6efd', '#6f42c1', '#20c997', '#dc3545']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                });
+            });
+
+            $.get('/api/dashboard/vendas-por-hora' + params, function(data) {
+                const labels = data.map(item => item.hora + 'h');
+                const valores = data.map(item => item.faturamento);
+
+                if (hourlyChart) hourlyChart.destroy();
+                const ctx = document.getElementById('hourly-chart').getContext('2d');
+                hourlyChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: valores,
+                            backgroundColor: '#198754'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            });
+
+            $.get('/api/dashboard/produtos-mais-vendidos' + params, function(data) {
+                const tbody = $('#tabelaProdutos');
+                tbody.empty();
+                data.forEach(prod => {
+                    tbody.append(`
+                        <tr>
+                            <td>${prod.nome}</td>
+                            <td>${prod.quantidade}</td>
+                            <td>R$ ${prod.faturamento.toFixed(2)}</td>
+                        </tr>
+                    `);
+                });
+            });
+        }
+
+        $('#filtroForm').submit(function(e) {
+            e.preventDefault();
+            const de = $('#filtroDe').val();
+            const ate = $('#filtroAte').val();
+            const status = $('#filtroStatus').val();
+
+            let query = '?';
+            if (de) query += 'de=' + de + '&';
+            if (ate) query += 'ate=' + ate + '&';
+            if (status) query += 'status=' + status + '&';
+
+            carregarDashboard(query);
+        });
+
+        $(document).ready(function() {
+            carregarDashboard();
+        });
+    </script>
+</div>
+</body>
+</html>

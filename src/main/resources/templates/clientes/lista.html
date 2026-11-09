@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Lista de Clientes</title>
+</head>
+<body>
+<div th:fragment="content">
+    <input type="hidden" id="csrfToken" th:value="${_csrf.token}">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-person-raised-hand me-2 text-primary"></i>Clientes
+        </h2>
+        <a th:href="@{/clientes/novo}" class="btn btn-primary" th:if="${perfilLogado == 'ATENDENTE'}">
+            <i class="bi bi-plus-lg me-1"></i> Novo Cliente
+        </a>
+    </div>
+
+    <div id="mensagemAcao"></div>
+
+    <div class="card shadow-sm" id="areaClientes" th:attr="data-perfil=${perfilLogado}">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Nome</th>
+                        <th>Telefone</th>
+                        <th>Endereço</th>
+                        <th class="text-end pe-4">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="clientes-tabela"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            const API_URL = '/api/clientes';
+            const area = document.getElementById('areaClientes');
+            const perfil = area.dataset.perfil;
+            const podeEditar = perfil === 'ATENDENTE';
+            const podeExcluir = perfil === 'GERENTE';
+            const tabela = document.getElementById('clientes-tabela');
+            const mensagemAcao = document.getElementById('mensagemAcao');
+            const csrfToken = document.getElementById('csrfToken')?.value;
+
+            function mostrarMensagem(texto, tipo = 'danger') {
+                mensagemAcao.replaceChildren();
+                const alerta = document.createElement('div');
+                alerta.className = `alert alert-${tipo} mb-3`;
+                alerta.textContent = texto;
+                mensagemAcao.appendChild(alerta);
+            }
+
+            function textoOuTraco(valor) {
+                return valor !== null && valor !== undefined && String(valor).trim() !== '' ? String(valor) : '—';
+            }
+
+            function formatarEndereco(cliente) {
+                const partes = [
+                    cliente.logradouro,
+                    cliente.numero,
+                    cliente.complemento,
+                    cliente.bairro,
+                    cliente.cidade,
+                    cliente.estado
+                ].filter(parte => parte !== null && parte !== undefined && String(parte).trim() !== '');
+
+                return partes.length > 0 ? partes.join(', ') : textoOuTraco(cliente.endereco);
+            }
+
+            function criarCelula(texto) {
+                const celula = document.createElement('td');
+                celula.textContent = texto;
+                return celula;
+            }
+
+            function criarIcone(classes) {
+                const icone = document.createElement('i');
+                icone.className = classes;
+                return icone;
+            }
+
+            function criarLinhaVazia() {
+                const linha = document.createElement('tr');
+                const celula = document.createElement('td');
+                celula.colSpan = 4;
+                celula.className = 'text-center text-muted py-5';
+                celula.appendChild(criarIcone('bi bi-inbox fs-3 d-block mb-2'));
+                celula.appendChild(document.createTextNode('Nenhum cliente cadastrado.'));
+                linha.appendChild(celula);
+                return linha;
+            }
+
+            function criarBotaoEditar(cliente) {
+                const link = document.createElement('a');
+                link.href = `/clientes/editar/${encodeURIComponent(cliente.id)}`;
+                link.className = 'btn btn-sm btn-outline-primary me-1';
+                link.appendChild(criarIcone('bi bi-pencil-fill me-1'));
+                link.appendChild(document.createTextNode('Editar'));
+                return link;
+            }
+
+            function criarBotaoExcluir(cliente) {
+                const botao = document.createElement('button');
+                botao.type = 'button';
+                botao.className = 'btn btn-sm btn-outline-danger';
+                botao.appendChild(criarIcone('bi bi-trash-fill me-1'));
+                botao.appendChild(document.createTextNode('Excluir'));
+                botao.addEventListener('click', () => excluirCliente(cliente, botao));
+                return botao;
+            }
+
+            function criarLinha(cliente) {
+                const linha = document.createElement('tr');
+                linha.appendChild(criarCelula(textoOuTraco(cliente.nome)));
+                linha.appendChild(criarCelula(textoOuTraco(cliente.telefone)));
+                linha.appendChild(criarCelula(formatarEndereco(cliente)));
+
+                const acoes = document.createElement('td');
+                acoes.className = 'text-end pe-4';
+
+                if (podeEditar) {
+                    acoes.appendChild(criarBotaoEditar(cliente));
+                }
+
+                if (podeExcluir) {
+                    acoes.appendChild(criarBotaoExcluir(cliente));
+                }
+
+                linha.appendChild(acoes);
+                return linha;
+            }
+
+            async function carregarClientes() {
+                try {
+                    const resposta = await fetch(API_URL, { credentials: 'same-origin' });
+
+                    if (!resposta.ok) {
+                        const texto = await resposta.text();
+                        throw new Error(texto || `Erro HTTP ${resposta.status} ao carregar os clientes.`);
+                    }
+
+                    const clientes = await resposta.json();
+                    tabela.replaceChildren();
+
+                    if (clientes.length === 0) {
+                        tabela.appendChild(criarLinhaVazia());
+                        return;
+                    }
+
+                    clientes.forEach(cliente => tabela.appendChild(criarLinha(cliente)));
+                } catch (erro) {
+                    mostrarMensagem(erro.message || 'Erro ao carregar os clientes.');
+                }
+            }
+
+            async function excluirCliente(cliente, botao) {
+                if (!confirm(`Tem certeza que deseja excluir o cliente "${cliente.nome || ''}"?`)) {
+                    return;
+                }
+
+                botao.disabled = true;
+
+                try {
+                    const resposta = await fetch(`${API_URL}/${encodeURIComponent(cliente.id)}`, {
+                        method: 'DELETE',
+                        credentials: 'same-origin',
+                        headers: { 'X-XSRF-TOKEN': csrfToken }
+                    });
+
+                    if (!resposta.ok) {
+                        const texto = await resposta.text();
+                        throw new Error(texto || `Erro HTTP ${resposta.status} ao excluir o cliente.`);
+                    }
+
+                    mostrarMensagem('Cliente excluído com sucesso!', 'success');
+                    await carregarClientes();
+                } catch (erro) {
+                    mostrarMensagem(erro.message || 'Erro ao excluir o cliente.');
+                    botao.disabled = false;
+                }
+            }
+
+            carregarClientes();
+        })();
+    </script>
+</div>
+</body>
+</html>

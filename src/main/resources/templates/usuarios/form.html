@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Gestão de Usuário</title>
+</head>
+<body>
+
+<div th:fragment="content">
+
+    <div class="d-flex align-items-center mb-4 gap-3">
+        <a href="/usuarios" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <h2 class="fw-bold mb-0 text-dark">
+            <span th:text="${usuario.id != null} ? 'Editar Cadastro de Usuário' : 'Cadastrar Novo Usuário'"></span>
+        </h2>
+    </div>
+
+    <div class="card shadow-sm border-0" style="max-width: 540px;">
+        <div class="card-body p-4">
+
+            <form th:action="${usuario.id != null}
+                    ? @{/usuarios/editar/{id}(id=${usuario.id})}
+                    : @{/usuarios/salvar}"
+                  th:object="${usuario}"
+                  method="post">
+
+                <!-- Nome de Usuário -->
+                <div class="mb-3">
+                    <label for="username" class="form-label fw-semibold text-secondary">
+                        <i class="bi bi-person me-1"></i>Nome de Usuário
+                    </label>
+                    <input type="text"
+                           id="username"
+                           class="form-control"
+                           th:field="*{username}"
+                           placeholder="Ex: usuario.exemplo"
+                           required/>
+                </div>
+
+                <!-- Senha de Acesso -->
+                <div class="mb-3">
+                    <label for="password" class="form-label fw-semibold text-secondary">
+                        <i class="bi bi-lock me-1"></i>Senha de Acesso
+                        <small class="text-muted fw-normal" th:if="${usuario.id != null}">
+                            (opcional — mantenha em branco para preservar a atual)
+                        </small>
+                    </label>
+                    <div class="input-group">
+                        <input type="password"
+                               id="password"
+                               class="form-control"
+                               th:field="*{password}"
+                               placeholder="••••••••"
+                               th:required="${usuario.id == null}"/>
+                        <button type="button" class="btn btn-outline-secondary" id="btnAlternarSenha">
+                            <i class="bi bi-eye" id="iconeOlho"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Nível de Permissão -->
+                <div class="mb-4">
+                    <label for="role" class="form-label fw-semibold text-secondary">
+                        <i class="bi bi-shield me-1"></i>Nível de Permissão
+                    </label>
+                    <select id="role" class="form-select" th:field="*{role}" required>
+                        <option value="" disabled>Escolha um perfil...</option>
+                        <option th:each="p : ${perfis}" th:value="${p}" th:text="${p}"></option>
+                    </select>
+                </div>
+
+                <!-- Botões de Ação -->
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>
+                        <span th:text="${usuario.id != null} ? 'Atualizar Dados' : 'Efetuar Cadastro'"></span>
+                    </button>
+                    <a href="/usuarios" class="btn btn-outline-secondary">Cancelar Operação</a>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Script customizado para exibir/ocultar senha
+        document.getElementById('btnAlternarSenha').addEventListener('click', function () {
+            const campoSenha = document.getElementById('password');
+            const iconeOlho  = document.getElementById('iconeOlho');
+            if (campoSenha.type === 'password') {
+                campoSenha.type = 'text';
+                iconeOlho.classList.replace('bi-eye', 'bi-eye-slash');
+            } else {
+                campoSenha.type = 'password';
+                iconeOlho.classList.replace('bi-eye-slash', 'bi-eye');
+            }
+        });
+    </script>
+
+</div>
+
+</body>
+</html>

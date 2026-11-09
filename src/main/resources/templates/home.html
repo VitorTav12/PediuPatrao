@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Home</title>
+</head>
+<body>
+
+<div class="container-fluid py-4" th:fragment="content">
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <!-- Saudação dinâmica enviada pelo HomeController -->
+            <h1 class="display-6 fw-bold text-dark" th:text="${saudacaoDinamica}">Bem-vindo!</h1>
+            <p class="text-muted">Sistema de Gestão - Pediu Patrão</p>
+        </div>
+    </div>
+
+    <!-- Cartões de Métricas Exclusivos -->
+    <div class="row justify-content-center mb-4">
+        <div class="col-md-4 col-sm-6 mb-3">
+            <div class="card text-white bg-primary shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Produtos Cadastrados</h5>
+                    <h2 class="display-4 fw-bold" th:text="${totalProdutos}">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-3">
+            <div class="card text-white bg-success shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Total de Pedidos</h5>
+                    <h2 class="display-4 fw-bold" th:text="${totalPedidos}">0</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center">
+        <img th:src="@{/images/logo.png}" alt="Logo" class="img-fluid" style="max-width: 300px; height: auto;">
+    </div>
+</div>
+
+</body>
+</html>

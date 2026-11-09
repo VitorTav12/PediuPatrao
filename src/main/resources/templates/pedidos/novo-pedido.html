@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Abertura de Pedido</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <input type="hidden" id="tokenSeguranca" th:value="${_csrf.token}">
+        
+        <!-- Header da Tela -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold mb-0 text-dark">
+                <i class="bi bi-cart-plus me-2 text-primary"></i> Registrar Pedido
+            </h2>
+            <a th:href="@{/pedidos}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-return-left me-1"></i> Retornar
+            </a>
+        </div>
+
+        <!-- Seção do Cliente -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light border-bottom-0">
+                <h6 class="mb-0 fw-bold">Informações do Cliente</h6>
+            </div>
+            <div class="card-body">
+                <label for="selectCliente" class="form-label text-muted">Selecione o Cliente</label>
+                <select id="selectCliente" class="form-select" required>
+                    <option value="">-- Escolha na lista --</option>
+                    <option th:each="cli : ${clientes}" th:value="${cli.id}" th:text="${cli.nome}"></option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Seção de Produtos -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light border-bottom-0">
+                <h6 class="mb-0 fw-bold">Montagem do Carrinho</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-7">
+                        <label for="selectProduto" class="form-label text-muted">Produto Disponível</label>
+                        <select id="selectProduto" class="form-select">
+                            <option value="">-- Escolha o item --</option>
+                            <option th:each="prod : ${produtos}" th:if="${prod.ativo}" 
+                                    th:value="${prod.id}" th:data-preco="${prod.preco}" th:text="${prod.nome}">
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="inputQtd" class="form-label text-muted">Qtd.</label>
+                        <input type="number" id="inputQtd" class="form-control" min="1" value="1">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" id="btnIncluirItem" class="btn btn-primary w-100 fw-medium">
+                            <i class="bi bi-plus-lg"></i> Incluir
+                        </button>
+                    </div>
+                </div>
+
+                <div id="areaAlertas" class="mt-3"></div>
+
+                <div class="table-responsive mt-4">
+                    <table class="table table-borderless table-hover align-middle border">
+                        <thead class="table-light border-bottom">
+                            <tr>
+                                <th>Item</th>
+                                <th>Vlr. Unitário</th>
+                                <th>Qtd</th>
+                                <th>Subtotal</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaCarrinho">
+                            <!-- JS preenche aqui -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-end mt-3">
+                    <div class="text-end bg-light p-3 rounded border">
+                        <span class="text-secondary small text-uppercase fw-bold">Valor Total</span>
+                        <h3 class="fw-bold text-success mb-0" id="displayTotal">R$ 0,00</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botões de Finalização -->
+        <div class="d-flex justify-content-end gap-3 mb-5">
+            <button type="button" id="btnFinalizar" class="btn btn-success px-4 fw-bold" disabled>
+                <i class="bi bi-check2-circle me-2"></i> Confirmar Pedido
+            </button>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                let carrinhoCompras = [];
+                
+                const dom = {
+                    cliente: document.getElementById('selectCliente'),
+                    produto: document.getElementById('selectProduto'),
+                    qtd: document.getElementById('inputQtd'),
+                    btnIncluir: document.getElementById('btnIncluirItem'),
+                    tabela: document.getElementById('tabelaCarrinho'),
+                    total: document.getElementById('displayTotal'),
+                    alertas: document.getElementById('areaAlertas'),
+                    btnFinalizar: document.getElementById('btnFinalizar'),
+                    csrf: document.getElementById('tokenSeguranca')
+                };
+
+                const formatarBRL = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+                const exibirAlerta = (msg, cor = 'warning') => {
+                    dom.alertas.innerHTML = `<div class="alert alert-${cor} shadow-sm border-0 py-2"><i class="bi bi-info-circle me-2"></i>${msg}</div>`;
+                    setTimeout(() => dom.alertas.innerHTML = '', 4000);
+                };
+
+                const atualizarInterface = () => {
+                    if (carrinhoCompras.length === 0) {
+                        dom.tabela.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-cart-x fs-3 d-block mb-2"></i>Carrinho vazio</td></tr>`;
+                        dom.total.innerText = 'R$ 0,00';
+                        dom.btnFinalizar.disabled = true;
+                        return;
+                    }
+
+                    let linhasHtml = '';
+                    let valorAcumulado = 0;
+
+                    carrinhoCompras.forEach((item, idx) => {
+                        let sub = item.preco * item.quantidade;
+                        valorAcumulado += sub;
+                        linhasHtml += `
+                            <tr>
+                                <td class="fw-medium">${item.nome}</td>
+                                <td>${formatarBRL(item.preco)}</td>
+                                <td><span class="badge bg-secondary px-2 py-1">${item.quantidade}</span></td>
+                                <td class="fw-bold">${formatarBRL(sub)}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger border-0" onclick="removerDoCarrinho(${idx})">
+                                        <i class="bi bi-trash3-fill"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    dom.tabela.innerHTML = linhasHtml;
+                    dom.total.innerText = formatarBRL(valorAcumulado);
+                    dom.btnFinalizar.disabled = !dom.cliente.value;
+                };
+
+                window.removerDoCarrinho = (index) => {
+                    carrinhoCompras.splice(index, 1);
+                    atualizarInterface();
+                };
+
+                dom.btnIncluir.addEventListener('click', () => {
+                    const idProd = dom.produto.value;
+                    const nomeProd = dom.produto.options[dom.produto.selectedIndex]?.text;
+                    const precoProd = parseFloat(dom.produto.options[dom.produto.selectedIndex]?.dataset.preco);
+                    const qtdSelecionada = parseInt(dom.qtd.value);
+
+                    if (!idProd) return exibirAlerta("Por favor, selecione um produto válido.");
+                    if (isNaN(qtdSelecionada) || qtdSelecionada < 1) return exibirAlerta("A quantidade deve ser maior que zero.");
+
+                    let itemExistente = carrinhoCompras.find(i => i.produtoId === idProd);
+                    
+                    if (itemExistente) {
+                        itemExistente.quantidade += qtdSelecionada;
+                    } else {
+                        carrinhoCompras.push({ produtoId: idProd, nome: nomeProd, preco: precoProd, quantidade: qtdSelecionada });
+                    }
+
+                    dom.produto.value = '';
+                    dom.qtd.value = 1;
+                    atualizarInterface();
+                });
+
+                dom.cliente.addEventListener('change', atualizarInterface);
+
+                dom.btnFinalizar.addEventListener('click', async () => {
+                    if (!dom.cliente.value || carrinhoCompras.length === 0) return;
+
+                    dom.btnFinalizar.disabled = true;
+                    dom.btnFinalizar.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processando...';
+
+                    const payload = {
+                        clienteId: dom.cliente.value,
+                        itens: carrinhoCompras.map(i => ({ produtoId: i.produtoId, quantidade: i.quantidade }))
+                    };
+
+                    try {
+                        const req = await fetch('/api/pedidos', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-XSRF-TOKEN': dom.csrf.value
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!req.ok) throw new Error("Falha na comunicação com o servidor.");
+                        
+                        window.location.href = "/pedidos";
+                    } catch (e) {
+                        exibirAlerta("Erro ao salvar pedido: " + e.message, "danger");
+                        dom.btnFinalizar.disabled = false;
+                        dom.btnFinalizar.innerHTML = '<i class="bi bi-check2-circle me-2"></i> Confirmar Pedido';
+                    }
+                });
+
+                atualizarInterface();
+            });
+        </script>
+    </div>
+</body>
+</html>
