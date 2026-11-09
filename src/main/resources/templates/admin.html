@@ -38,11 +38,21 @@
                         <option value="CANCELADO">CANCELADO</option>
                     </select>
                 </div>
-                <div class="col-md-3 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-1"></i> Filtrar</button>
+                <div class="col-md-3 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary w-50"><i class="bi bi-search me-1"></i> Filtrar</button>
+                    <button type="button" class="btn btn-secondary w-50" onclick="limparFiltros()">Limpar</button>
                 </div>
             </form>
         </div>
+    </div>
+
+    <div id="alertError" class="alert alert-danger d-none" role="alert"></div>
+
+    <div id="loadingSpinner" class="text-center d-none my-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+        <p class="text-muted mt-2">Buscando dados do painel...</p>
     </div>
 
     <div class="row text-white mb-4">
@@ -143,18 +153,55 @@
     <script>
         let salesChart, statusChart, hourlyChart;
 
-        function carregarDashboard(params = '') {
-            $.get('/api/dashboard/resumo' + params, function(data) {
-                $('#lblFaturamento').text('R$ ' + data.faturamento.toFixed(2));
-                $('#lblPedidosValidos').text(data.pedidosValidos);
-                $('#lblTicketMedio').text('R$ ' + data.ticketMedio.toFixed(2));
-                $('#lblCancelamento').text(data.percentualCancelamento.toFixed(1) + '%');
-            });
+        function limparFiltros() {
+            document.getElementById('filtroDe').value = '';
+            document.getElementById('filtroAte').value = '';
+            document.getElementById('filtroStatus').value = '';
+            carregarDashboard('');
+        }
 
-            $.get('/api/dashboard/vendas-por-dia' + params, function(data) {
-                const labels = data.map(item => item.data);
-                const valores = data.map(item => item.faturamento);
+        async function fetchDashboardData(url) {
+            const alertBox = document.getElementById('alertError');
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    if (response.status === 400) {
+                        throw new Error("Período ou filtro inválido. Verifique as datas selecionadas.");
+                    }
+                    throw new Error("Erro ao buscar dados do servidor. Tente novamente.");
+                }
+                return await response.json();
+            } catch (error) {
+                alertBox.textContent = error.message;
+                alertBox.classList.remove('d-none');
+                return null;
+            }
+        }
 
+        async function carregarDashboard(params = '') {
+            document.getElementById('alertError').classList.add('d-none');
+            document.getElementById('loadingSpinner').classList.remove('d-none');
+
+            const [resumo, vendasDia, statusPedidos, vendasHora, produtos] = await Promise.all([
+                fetchDashboardData('/api/dashboard/resumo' + params),
+                fetchDashboardData('/api/dashboard/vendas-por-dia' + params),
+                fetchDashboardData('/api/dashboard/pedidos-por-status' + params),
+                fetchDashboardData('/api/dashboard/vendas-por-hora' + params),
+                fetchDashboardData('/api/dashboard/produtos-mais-vendidos' + params)
+            ]);
+
+            document.getElementById('loadingSpinner').classList.add('d-none');
+
+            if (resumo) {
+                document.getElementById('lblFaturamento').textContent = 'R$ ' + resumo.faturamento.toFixed(2);
+                document.getElementById('lblPedidosValidos').textContent = resumo.pedidosValidos;
+                document.getElementById('lblTicketMedio').textContent = 'R$ ' + resumo.ticketMedio.toFixed(2);
+                document.getElementById('lblCancelamento').textContent = resumo.percentualCancelamento.toFixed(1) + '%';
+            }
+
+            if (vendasDia) {
+                const labels = vendasDia.map(item => item.data);
+                const valores = vendasDia.map(item => item.faturamento);
                 if (salesChart) salesChart.destroy();
                 const ctx = document.getElementById('sales-chart').getContext('2d');
                 salesChart = new Chart(ctx, {
@@ -169,17 +216,13 @@
                             tension: 0.1
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { display: false } }
-                    }
+                    options: { responsive: true, plugins: { legend: { display: false } } }
                 });
-            });
+            }
 
-            $.get('/api/dashboard/pedidos-por-status' + params, function(data) {
-                const labels = data.map(item => item.status);
-                const valores = data.map(item => item.quantidade);
-
+            if (statusPedidos) {
+                const labels = statusPedidos.map(item => item.status);
+                const valores = statusPedidos.map(item => item.quantidade);
                 if (statusChart) statusChart.destroy();
                 const ctx = document.getElementById('status-chart').getContext('2d');
                 statusChart = new Chart(ctx, {
@@ -191,18 +234,13 @@
                             backgroundColor: ['#ffc107', '#0dcaf0', '#198754', '#0d6efd', '#6f42c1', '#20c997', '#dc3545']
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } }
-                    }
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
                 });
-            });
+            }
 
-            $.get('/api/dashboard/vendas-por-hora' + params, function(data) {
-                const labels = data.map(item => item.hora + 'h');
-                const valores = data.map(item => item.faturamento);
-
+            if (vendasHora) {
+                const labels = vendasHora.map(item => item.hora + 'h');
+                const valores = vendasHora.map(item => item.faturamento);
                 if (hourlyChart) hourlyChart.destroy();
                 const ctx = document.getElementById('hourly-chart').getContext('2d');
                 hourlyChart = new Chart(ctx, {
@@ -214,33 +252,30 @@
                             backgroundColor: '#198754'
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { display: false } }
-                    }
+                    options: { responsive: true, plugins: { legend: { display: false } } }
                 });
-            });
+            }
 
-            $.get('/api/dashboard/produtos-mais-vendidos' + params, function(data) {
-                const tbody = $('#tabelaProdutos');
-                tbody.empty();
-                data.forEach(prod => {
-                    tbody.append(`
+            if (produtos) {
+                const tbody = document.getElementById('tabelaProdutos');
+                tbody.innerHTML = '';
+                produtos.forEach(prod => {
+                    tbody.innerHTML += `
                         <tr>
                             <td>${prod.nome}</td>
                             <td>${prod.quantidade}</td>
                             <td>R$ ${prod.faturamento.toFixed(2)}</td>
                         </tr>
-                    `);
+                    `;
                 });
-            });
+            }
         }
 
-        $('#filtroForm').submit(function(e) {
+        document.getElementById('filtroForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const de = $('#filtroDe').val();
-            const ate = $('#filtroAte').val();
-            const status = $('#filtroStatus').val();
+            const de = document.getElementById('filtroDe').value;
+            const ate = document.getElementById('filtroAte').value;
+            const status = document.getElementById('filtroStatus').value;
 
             let query = '?';
             if (de) query += 'de=' + de + '&';
@@ -250,7 +285,7 @@
             carregarDashboard(query);
         });
 
-        $(document).ready(function() {
+        document.addEventListener("DOMContentLoaded", function() {
             carregarDashboard();
         });
     </script>
