@@ -1,111 +1,202 @@
-# Documentação Técnica - Dashboard Administrativo "Pediu Patrão"
+# Pediu Patrão — Dashboard Administrativo
 
-## 1. Requisitos do Sistema
+Dashboard administrativo integrado ao sistema de pedidos **Pediu Patrão**. O painel consome uma API REST própria (`/api/dashboard`) para que o responsável pelo estabelecimento acompanhe vendas, situação dos pedidos e produtos mais vendidos.
 
-### Requisitos Funcionais (RF)
-* **RF01 — Indicadores gerais de vendas:** O sistema deve calcular e exibir o faturamento total, quantidade de pedidos válidos, ticket médio e percentual de cancelamento.
-* **RF02 — Análise de vendas (gráficos):** O sistema deve exibir gráficos de linhas para faturamento por dia e gráficos de barras para vendas por horário (picos de movimento).
-* **RF03 — Situação dos pedidos:** O sistema deve apresentar um gráfico consolidado (Doughnut/Pizza) demonstrando a distribuição dos pedidos por status.
-* **RF04 — Produtos mais vendidos:** O sistema deve exibir uma tabela com o ranking dos produtos mais populares, ordenados por quantidade vendida e faturamento gerado.
-* **RF05 — Filtros de consulta:** O dashboard deve permitir a filtragem dinâmica de todos os indicadores e gráficos por `data de início`, `data de fim` e `status` do pedido.
-* **RF06 — Integração com a API:** A interface deve consumir os dados dinamicamente via requisições assíncronas (Fetch API) diretamente dos endpoints do backend.
-* **RF07 — Atualização e tratamento de dados:** A interface deve gerenciar estados de carregamento (spinner) e exibir mensagens de erro amigáveis caso a API recuse a consulta (ex: períodos inválidos).
+**Tecnologias:** Java 21, Spring Boot, Spring Security, Spring Data MongoDB, Thymeleaf, Chart.js.
 
-### Requisitos Não Funcionais (RNF)
-* **RNF01 — Segurança de Acesso:** As rotas visuais (`/admin`) e os endpoints da API (`/api/dashboard/**`) devem ser estritamente protegidas pelo Spring Security, permitindo acesso apenas aos perfis `ADMIN` e `GERENTE`.
-* **RNF02 — Performance e Limites:** A API deve rejeitar automaticamente filtros de datas que excedam o intervalo de 366 dias (Status 400), prevenindo sobrecarga de processamento no banco de dados.
-* **RNF03 — Formato de Comunicação:** Todos os endpoints RESTful devem consumir e produzir dados no formato `application/json`.
-* **RNF04 — Arquitetura de Banco de Dados:** As queries de agregação (Aggregation Pipeline) devem ser executadas nativamente no MongoDB para garantir alta performance no agrupamento de milhares de pedidos.
+- Evidências de teste: [Evidencias.pdf](Evidencias.pdf)
 
 ---
 
-## 2. Documentação da API REST (Endpoints)
+## 1. Como executar
 
-A API do Dashboard foi projetada de forma modularizada, com um endpoint específico para cada componente da tela. Isso permite renderização progressiva no frontend.
+**Pré-requisitos:** Java 21 e MongoDB em execução.
 
-**URL Base:** `/api/dashboard`  
-**Autenticação Obrigatória:** Sim (Cookie/Session, Perfis: `ADMIN`, `GERENTE`).  
-**Parâmetros de Query (Aceites em todos os endpoints):**
-* `de` (String, opcional): Data de início no formato `YYYY-MM-DD`.
-* `ate` (String, opcional): Data final no formato `YYYY-MM-DD`.
-* `status` (String, opcional): Filtra por status específico (ex: `FINALIZADO`, `RECEBIDO`).
+**Variáveis de ambiente (opcionais):**
 
-### 2.1. Resumo de Indicadores
-* **Endpoint:** `GET /resumo`
-* **Descrição:** Retorna os KPIs globais do período selecionado.
-* **Códigos de Resposta:**
-  * `200 OK`: Sucesso.
-  * `400 Bad Request`: Data mal formatada ou intervalo superior a 366 dias.
-* **Exemplo de Resposta (200 OK):**
+| Variável | Descrição | Padrão |
+|---|---|---|
+| `MONGO_URI` | URI de conexão com o MongoDB | `mongodb://<usuario>:<senha>@localhost:27017/pizzaria?authSource=admin` (ajuste para o seu Mongo) |
+| `MONGO_DB` | Nome do banco | `pizzaria` |
+
+**Subir a aplicação:**
+
+```bash
+./mvnw spring-boot:run
+```
+
+A aplicação fica em `http://localhost:8080`.
+
+**Rodar os testes:**
+
+```bash
+./mvnw test
+```
+
+**Acesso inicial:** na primeira execução, se não houver nenhum ADMIN, é criado o usuário `admin` com a senha `teste123` (apenas para ambiente de teste). Pela tela de usuários, o ADMIN cria contas `GERENTE` e `ATENDENTE`.
+
+**Acesso ao dashboard:** menu lateral ou `http://localhost:8080/admin`, com perfil `ADMIN` ou `GERENTE`.
+
+---
+
+## 2. Requisitos
+
+### 2.1 Requisitos funcionais
+
+| Código | Requisito | Como foi atendido |
+|---|---|---|
+| RF01 | Indicadores gerais de vendas | Cards com faturamento, pedidos válidos, ticket médio e percentual de cancelamento. A API também devolve total de pedidos, cancelados e total de descontos. |
+| RF02 | Análise de vendas (gráficos) | Gráfico de linha com o faturamento por dia e gráfico de barras com as vendas por hora do dia. |
+| RF03 | Situação dos pedidos | Gráfico de rosca com a quantidade de pedidos por status. |
+| RF04 | Produtos mais vendidos | Tabela com o ranking por quantidade vendida (desempate por faturamento). |
+| RF05 | Filtros de consulta | Filtros por data inicial, data final e status, aplicados a todos os indicadores, gráficos e ao ranking. |
+| RF06 | Integração com a API | A tela consome os 5 endpoints com `fetch`, de forma assíncrona. |
+| RF07 | Atualização e tratamento de dados | Indicador de carregamento, mensagem de erro amigável quando a API recusa a consulta (ex.: período inválido) e botão para limpar os filtros. |
+
+### 2.2 Requisitos não funcionais
+
+| Código | Requisito |
+|---|---|
+| RNF01 | **Segurança de acesso:** a tela (`/admin`) e a API (`/api/dashboard/**`) só aceitam os perfis `ADMIN` e `GERENTE`, com a regra aplicada no backend pelo Spring Security. Só o método `GET` é permitido na API do dashboard. |
+| RNF02 | **Limites de consulta:** períodos acima de 366 dias e `limite` fora de 1 a 20 são rejeitados com status 400. Sem filtro de data, o padrão é o período dos últimos 30 dias. |
+| RNF03 | **Formato de comunicação:** os endpoints do dashboard respondem em `application/json`. As mensagens de erro de validação são devolvidas em texto simples (`text/plain`). |
+| RNF04 | **Persistência:** os pedidos ficam no MongoDB. O filtro por período e status é feito na consulta ao banco (`@Query`), e os indicadores são calculados na camada de serviço (`DashboardService`). |
+| RNF05 | **Qualidade:** regras de negócio na camada de serviço, tratamento centralizado de erros da API e testes automatizados (87 testes). |
+
+---
+
+## 3. Documentação da API
+
+**URL base:** `/api/dashboard`
+**Autenticação:** obrigatória (sessão), perfis `ADMIN` ou `GERENTE`.
+
+**Parâmetros de query aceitos em todos os endpoints:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `de` | data `AAAA-MM-DD` | não | Data inicial. Padrão: 29 dias antes da data final. |
+| `ate` | data `AAAA-MM-DD` | não | Data final. Padrão: hoje. |
+| `status` | texto | não | Um de `RECEBIDO`, `EM_PREPARO`, `PRONTO`, `SAIU_PARA_ENTREGA`, `RETIRADO`, `FINALIZADO`, `CANCELADO`. Sem o parâmetro, considera todos. |
+
+**Regras de cálculo:** pedidos `CANCELADO` não entram no faturamento, no ticket médio nem nos gráficos de venda. Eles são contados em `pedidosCancelados` e no percentual de cancelamento.
+
+### 3.1 Resumo de indicadores — `GET /api/dashboard/resumo`
+
+```http
+GET /api/dashboard/resumo?de=2026-11-01&ate=2026-11-09
+```
+
+Resposta `200 OK`:
+
 ```json
 {
-  "faturamento": 2450.75,
-  "pedidosValidos": 42,
-  "ticketMedio": 58.35,
-  "percentualCancelamento": 4.5
+  "de": "2026-11-01",
+  "ate": "2026-11-09",
+  "totalPedidos": 5,
+  "pedidosValidos": 5,
+  "pedidosCancelados": 0,
+  "faturamento": 345.0,
+  "ticketMedio": 69.0,
+  "totalDescontos": 5.0,
+  "percentualCancelamento": 0.0
 }
+```
 
-2.2. Vendas por Dia
-Endpoint: GET /vendas-por-dia
+### 3.2 Vendas por dia — `GET /api/dashboard/vendas-por-dia`
 
-Descrição: Agrupa o faturamento por dia, preenchendo datas vazias com valor zero.
+Devolve um item para cada dia do período, com zero nos dias sem venda.
 
-Exemplo de Resposta (200 OK):
-
-JSON
+```json
 [
-  { "data": "2026-11-08", "faturamento": 1200.00 },
-  { "data": "2026-11-09", "faturamento": 1250.75 }
+  { "data": "2026-11-08", "pedidos": 3, "faturamento": 200.0 },
+  { "data": "2026-11-09", "pedidos": 2, "faturamento": 145.0 }
 ]
-2.3. Pedidos por Status
-Endpoint: GET /pedidos-por-status
+```
 
-Descrição: Conta a quantidade de pedidos em cada etapa do funil (Em Preparo, Saiu para Entrega, etc).
+### 3.3 Vendas por hora — `GET /api/dashboard/vendas-por-hora`
 
-Exemplo de Resposta (200 OK):
+Devolve sempre 24 itens (hora 0 a 23).
 
-JSON
+```json
 [
-  { "status": "FINALIZADO", "quantidade": 38 },
-  { "status": "CANCELADO", "quantidade": 2 },
-  { "status": "EM_PREPARO", "quantidade": 4 }
+  { "hora": 19, "pedidos": 2, "faturamento": 120.0 },
+  { "hora": 20, "pedidos": 3, "faturamento": 225.0 }
 ]
-2.4. Vendas por Hora
-Endpoint: GET /vendas-por-hora
+```
 
-Descrição: Identifica os picos de faturamento agrupados pela hora do dia (0h às 23h).
+### 3.4 Pedidos por status — `GET /api/dashboard/pedidos-por-status`
 
-Exemplo de Resposta (200 OK):
+Devolve um item para cada status, com zero quando não há pedidos.
 
-JSON
+```json
 [
-  { "hora": 19, "faturamento": 800.00 },
-  { "hora": 20, "faturamento": 1450.50 }
+  { "status": "RECEBIDO", "quantidade": 2 },
+  { "status": "FINALIZADO", "quantidade": 3 },
+  { "status": "CANCELADO", "quantidade": 0 }
 ]
-2.5. Produtos Mais Vendidos
-Endpoint: GET /produtos-mais-vendidos?limite=5
+```
 
-Descrição: Lista o ranking de produtos com base no volume de itens vendidos (padrão: top 5).
+### 3.5 Produtos mais vendidos — `GET /api/dashboard/produtos-mais-vendidos`
 
-Exemplo de Resposta (200 OK):
+Parâmetro extra: `limite` (inteiro de 1 a 20, padrão 5).
 
-JSON
+```http
+GET /api/dashboard/produtos-mais-vendidos?limite=3&de=2026-11-01
+```
+
+```json
 [
-  { "nome": "Pizza Calabresa", "quantidade": 15, "faturamento": 750.00 },
-  { "nome": "Coca-Cola 2L", "quantidade": 12, "faturamento": 180.00 }
+  { "produtoId": "6730a1...", "nome": "Pizza Calabresa", "quantidade": 15, "faturamento": 750.0 },
+  { "produtoId": "6730a2...", "nome": "Coca-Cola 2L", "quantidade": 12, "faturamento": 180.0 }
 ]
-3. Evidências de Teste e Validação
-3.1. Execução de Testes Automatizados (Unitários e Integração)
-O projeto conta com uma suíte de testes robusta que cobre as regras de negócio, controladores de API e as restrições de segurança (Spring Security). Abaixo encontra-se o registo oficial da execução dos testes via Maven, comprovando o sucesso e a estabilidade da aplicação:
+```
 
-Plaintext
-Results:
+### 3.6 Erros possíveis
 
+| Status | Quando acontece | Exemplo de mensagem |
+|---|---|---|
+| `400 Bad Request` | Data inicial posterior à final | `A data inicial não pode ser posterior à data final.` |
+| `400 Bad Request` | Período maior que 366 dias | `O período máximo permitido é de 366 dias.` |
+| `400 Bad Request` | `limite` fora de 1 a 20 (só em produtos) | `O limite deve estar entre 1 e 20.` |
+| `400 Bad Request` | `status` ou data em formato inválido | `Valor inválido para o parâmetro status. Valores aceitos: [...]` |
+| `401 / redirecionamento ao login` | Usuário não autenticado | — |
+| `403 Forbidden` | Perfil sem permissão (ex.: `ATENDENTE`) ou método diferente de `GET` | Mensagem de acesso negado |
+
+---
+
+## 4. Evidências de teste
+
+- **Testes automatizados:** 87 testes cobrindo regras de negócio, controllers e restrições de segurança. Resultado da última execução (`./mvnw test`):
+
+```text
 Tests run: 87, Failures: 0, Errors: 0, Skipped: 0
-
-------------------------------------------------------------------------
 BUILD SUCCESS
-------------------------------------------------------------------------
-Total time:  10.811 s
-Finished at: 2026-11-09T22:56:51-03:00
-------------------------------------------------------------------------
+```
+
+- **Evidências visuais:** o arquivo [Evidencias.pdf](Evidencias.pdf) traz o erro tratado na tela (RF07), o dashboard funcionando e a resposta JSON de `/api/dashboard/resumo`.
+
+---
+
+## 5. Organização do repositório (gitflow)
+
+| Branch | Uso |
+|---|---|
+| `main` | Versão final entregue. |
+| `develop` | Integração das funcionalidades. |
+| `feature/dashboard-api` | Implementação dos endpoints do dashboard. |
+| `feature/dashboard-tela` | Tela do dashboard e integração com a API. |
+
+---
+
+## 6. Estrutura principal do código
+
+```text
+src/main/java/com/umc/pediupatrao/
+├── controller/DashboardApiController.java   # endpoints /api/dashboard
+├── service/DashboardService.java            # cálculo dos indicadores
+├── dto/DashboardDTO.java                    # formatos de resposta
+├── repository/PedidoRepository.java         # consultas por período e status
+└── config/SecurityConfig.java               # regras de acesso
+src/main/resources/templates/admin.html      # tela do dashboard
+src/test/java/                               # testes automatizados
+```
