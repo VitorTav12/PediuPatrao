@@ -4,6 +4,7 @@ Dashboard administrativo integrado ao sistema de pedidos **Pediu Patrão**. O pa
 
 **Tecnologias:** Java 21, Spring Boot, Spring Security, Spring Data MongoDB, Thymeleaf, Chart.js.
 
+- Vídeo de demonstração: https://youtu.be/tmzNT3SA_TI
 - Evidências de teste: [Evidencias.pdf](Evidencias.pdf)
 
 ---
