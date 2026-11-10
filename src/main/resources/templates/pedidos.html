@@ -60,9 +60,9 @@
                         <td>
                             <ul class="mb-0 ps-3 small text-secondary" th:if="${pedido.itens != null}">
                                 <li th:each="item : ${pedido.itens}">
-                                    <span class="fw-medium text-dark" th:text="${item.nomeProduto}"></span>
-                                    (<span th:text="${item.quantidade}"></span>x 
-                                    R$ <span th:text="${#numbers.formatDecimal(item.precoUnitario, 1, 2)}"></span>)
+                                    <span class="fw-medium text-dark" th:text="${item.descricaoProduto}"></span>
+                                    (<span th:text="${item.qtd}"></span>x 
+                                    R$ <span th:text="${#numbers.formatDecimal(item.valorUnitario, 1, 2)}"></span>)
                                 </li>
                             </ul>
                         </td>
@@ -168,13 +168,10 @@
         </div>
     </div>
 
-    <!-- O bloco de modais e scripts JavaScript permanece exatamente o mesmo para garantir a funcionalidade -->
     <div class="modal fade" id="modalCancelamento" tabindex="-1" aria-hidden="true">
-        <!-- (mantido igual) -->
     </div>
 
     <script>
-        // Todo o código JavaScript original mantém-se intacto aqui para preservar a lógica da API
         (() => {
             const csrfToken = document.getElementById("csrfToken")?.value;
             const mensagemAcao = document.getElementById("mensagemAcao");
